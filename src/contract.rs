@@ -71,3 +71,12 @@ pub trait ContentStore: Send + Sync {
         self.put_reader(&mut &bytes[..])
     }
 }
+
+pub trait GarbageCollector {
+    fn gc(&self, live: &HashSet<ContentId>) -> Result<usize, StoreError>;
+}
+
+#[derive(Default)]
+pub struct MemStore {
+    map: RwLock<HashMap<ContentId, Bytes>>,
+}
