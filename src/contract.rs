@@ -4,7 +4,6 @@ use std::io::Read;
 use std::sync::RwLock;
 use bytes::Bytes;
 
-
 pub struct ContentId([u8; 32]);
 
 impl ContentId {
@@ -30,3 +29,19 @@ impl ContentId {
         &self.0
     }
 }
+
+
+impl fmt::Display for ContentId {
+    
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+impl fmt::Debug for ContentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ContentId({})", hex::encode(self.0))
+    }
+}
+
+
