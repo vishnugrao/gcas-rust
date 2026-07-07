@@ -4,6 +4,7 @@ use std::io::Read;
 use std::sync::RwLock;
 use bytes::Bytes;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ContentId([u8; 32]);
 
 impl ContentId {
@@ -44,4 +45,29 @@ impl fmt::Debug for ContentId {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ParseIdError {
+    #[error("content id must be 32 bytes (64 hex chars), got {0} bytes")]
+    BadLength(usize),
+    #[error("Invalid hex: {0}")]
+    Hex(#[from] hex::FromHexError),
+}
 
+#[derive(Debug, thiserror:Error)]
+pub enum StoreError {
+    #[error("i/o error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+pub trait ContentStore: Send + Sync {
+
+    fn put_reader(&self, reader: &mut dyn Read) -> Result<ContentId, StoreError>;
+
+    fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError>;
+
+    fn has(&self, id: &ContentId) -> Result<bool, StoreError>;
+
+    fn put(&self, bytes: &[u8]) -> Result<ContentId, StoreError> {
+        self.put_reader(&mut &bytes[..])
+    }
+}
