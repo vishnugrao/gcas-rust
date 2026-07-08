@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -19,8 +18,8 @@ impl ContentId {
         let arr: [u8; 32] = v
             .as_slice()
             .try_into()
-            .map_err(|_| ParseIDError::BadLength(v.len()))?;
-        ok(ContentId(arr))
+            .map_err(|_| ParseIdError::BadLength(v.len()))?;
+        Ok(ContentId(arr))
     }
 
     pub fn as_bytes(&self) -> &[u8; 32] {

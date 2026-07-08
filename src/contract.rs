@@ -1,6 +1,11 @@
+// Public libs
 use std::collections::HashSet;
 use std::io::Read;
 use bytes::Bytes;
+
+// Private libs
+use crate::id::ContentId;
+use crate::error::StoreError;
 
 pub trait ContentStore: Send + Sync {
 
@@ -19,3 +24,15 @@ pub trait GarbageCollect {
     fn gc(&self, live: &HashSet<ContentId>) -> Result<usize, StoreError>;
 }
 
+pub struct ContractImpl();
+
+impl ContractImpl {
+    
+    pub fn new() -> Self{
+        Self{}
+    }
+
+    pub fn say_hello(&self) {
+        println!("Hello World!");
+    }
+}
