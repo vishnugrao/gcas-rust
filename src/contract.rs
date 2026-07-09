@@ -24,15 +24,3 @@ pub trait GarbageCollect {
     fn gc(&self, live: &HashSet<ContentId>) -> Result<usize, StoreError>;
 }
 
-pub struct ContractImpl();
-
-impl ContractImpl {
-    
-    pub fn new() -> Self{
-        Self{}
-    }
-
-    pub fn say_hello(&self) {
-        println!("Hello World!");
-    }
-}
