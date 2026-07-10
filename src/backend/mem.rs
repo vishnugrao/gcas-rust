@@ -26,6 +26,10 @@ impl MemStore {
     pub fn is_empty(&self) -> bool {
         self.map.read().map(|m| m.is_empty()).unwrap_or(false)
     }
+
+    pub fn len(&self) -> usize {
+        self.map.read().map(|m| m.len()).unwrap_or(0)
+    }
 }
 
 impl ContentStore for MemStore {
