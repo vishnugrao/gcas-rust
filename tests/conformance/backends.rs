@@ -1,13 +1,13 @@
-use gcas_rust::backend::mem::MemStore;
-use gcas_rust::conformance::contract_suite;
+use crate::suite::conformance_suite;
 
-#[test]
-fn mem_conforms() {
-    contract_suite(MemStore::new);
+mod mem {
+    use super::conformance_suite;
+    use gcas_rust::backend::mem::MemStore;
+    conformance_suite!(MemStore::new);
 }
 
-// #[test]
-// fn loose_conforms() {
-//     let dir = tempfile::tempdir().unwrap();
-//     contract_suite(|| LooseStore::open(dir.path()).unwrap());
+// mod loose {
+//     use super::conformance_suite;
+//     use gcas_rust::backend::loose::LooseStore;
+//     conformance_suite!(|| LooseStore::open(tempfile::tempdir().unwrap().path()).unwrap());
 // }

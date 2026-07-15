@@ -1,7 +1,7 @@
-use crate::contract::ContentStore;
-use crate::id::ContentId;
+use gcas_rust::contract::ContentStore;
+use gcas_rust::id::ContentId;
 
-pub(super) fn stored_is_retrievable_absent_is_not<S: ContentStore>(s: &S) {
+pub fn stored_is_retrievable_absent_is_not<S: ContentStore>(s: &S) {
     let h = s.put(b"hello").unwrap();
     assert_eq!(s.get(&h).unwrap().as_deref(), Some(&b"hello"[..]));
     assert!(s.has(&h).unwrap());
@@ -11,14 +11,14 @@ pub(super) fn stored_is_retrievable_absent_is_not<S: ContentStore>(s: &S) {
     assert!(s.get(&absent).unwrap().is_none());
 }
 
-pub(super) fn empty_blob_is_a_value<S: ContentStore>(s: &S) {
+pub fn empty_blob_is_a_value<S: ContentStore>(s: &S) {
     let h = s.put(&[]).unwrap();
     assert_eq!(h, ContentId::of(&[]));
     assert_eq!(s.get(&h).unwrap().as_deref(), Some(&[][..]));
     assert!(s.has(&h).unwrap());
 }
 
-pub(super) fn nul_bytes_are_data_not_terminators<S: ContentStore>(s: &S) {
+pub fn nul_bytes_are_data_not_terminators<S: ContentStore>(s: &S) {
     let one = s.put(&[0]).unwrap();
     let three = s.put(&[0, 0, 0]).unwrap();
     assert_ne!(one, three);

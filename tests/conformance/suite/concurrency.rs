@@ -2,10 +2,10 @@ use std::sync::Arc;
 use std::thread;
 
 use super::support::ramp;
-use crate::contract::ContentStore;
-use crate::id::ContentId;
+use gcas_rust::contract::ContentStore;
+use gcas_rust::id::ContentId;
 
-pub(super) fn concurrent_puts_agree_on_address<S: ContentStore + 'static>(s: Arc<S>) {
+pub fn concurrent_puts_agree_on_address<S: ContentStore + 'static>(s: Arc<S>) {
     let data = ramp(8192);
     let expected = ContentId::of(&data);
 
