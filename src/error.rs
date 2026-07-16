@@ -5,3 +5,9 @@ pub enum StoreError {
     #[error("lock poisoned")]
     Poison,
 }
+
+impl From<tempfile::PersistError> for StoreError {
+    fn from(e: tempfile::PersistError) -> Self {
+        StoreError::Io(e.error)
+    }
+}
