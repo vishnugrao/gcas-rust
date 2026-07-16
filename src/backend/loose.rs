@@ -64,7 +64,7 @@ impl ContentStore for LooseStore {
     }    
 
     fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
-        let path = &self.root.join(id.to_string());
+        let path = self.root.join(id.to_string());
         match fs::read(&path) {
             Ok(data) => Ok(Some(Bytes::from(data))),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),

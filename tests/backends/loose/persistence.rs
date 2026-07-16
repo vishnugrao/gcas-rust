@@ -40,4 +40,7 @@ fn get_returns_same_bytes() {
 
     let id = store.put(b"hello world!").unwrap();
     assert_eq!(store.get(&id).unwrap().as_deref(), Some(&b"hello world!"[..]));
+
+    let absent = ContentId::of(b"never stored...");
+    assert!(store.get(&absent).unwrap().is_none());
 }
