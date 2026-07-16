@@ -44,3 +44,27 @@ fn get_returns_same_bytes() {
     let absent = ContentId::of(b"never stored...");
     assert!(store.get(&absent).unwrap().is_none());
 }
+
+#[test]
+fn survives_reopen() {
+    let dir = tempdir().unwrap();
+
+    let id = {
+        let initial_store = LooseStore::open(dir.path()).unwrap();
+        initial_store.put(b"hello world!").unwrap()
+    };
+
+    let reopened_store = LooseStore::open(dir.path()).unwrap();
+    assert_eq!(reopened_store.get(&id).unwrap().as_deref(), Some(&b"hello world!"[..]));
+}
+
+#[test]
+fn writes_sharded_object_file() {
+    let dir = tempdir().unwrap();
+    let store = LooseStore::open(dir.path()).unwrap();
+    let id = store.put(b"hello world!").unwrap();
+
+    let hex = id.to_string();
+    let object_path = dir.path().join("objects").join(&hex[..2]).join(&hex[2..]);
+    assert!(object_path.is_file(), "expected sharded object at {object_path:?}");
+}

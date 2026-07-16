@@ -37,9 +37,15 @@ impl LooseStore {
         /* aggregate counts (maybe additional bookkeeping on insert / del, not sure */
         todo!()
     }
+
+    pub fn object_path(&self, id: &ContentId) -> PathBuf {
+        let hex = id.to_string();
+        self.root.join(&hex[..2]).join(&hex[2..])
+    }
 }
 
 impl ContentStore for LooseStore {
+
     fn put_reader(&self, reader: &mut dyn Read) -> Result<ContentId, StoreError> {
         let mut buf = [0u8; BUF_SIZE];
         let mut hasher = Hasher::new();
@@ -59,12 +65,14 @@ impl ContentStore for LooseStore {
 
         let hash = hasher.finalize();
         let content_id = ContentId::from_bytes(*hash.as_bytes());
-        named_temp_file.persist(self.root.join(content_id.to_string()))?;
+        let final_path = self.object_path(&content_id);
+        fs::create_dir_all(final_path.parent().unwrap())?;
+        named_temp_file.persist(final_path)?;
         Ok(content_id)
     }    
 
     fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
-        let path = self.root.join(id.to_string());
+        let path = self.object_path(id);
         match fs::read(&path) {
             Ok(data) => Ok(Some(Bytes::from(data))),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
@@ -73,7 +81,6 @@ impl ContentStore for LooseStore {
     }
 
     fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
-        /* Todo */
-        todo!()
+        Ok(self.object_path(id).try_exists()?)
     }
 } 
