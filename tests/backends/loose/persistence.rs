@@ -32,3 +32,12 @@ fn put_small_blob_returns_correct_id() {
 
     assert_eq!(expected_id, returned_id);
 }
+
+#[test]
+fn get_returns_same_bytes() {
+    let dir = tempdir().unwrap();
+    let store = LooseStore::open(dir.path()).unwrap();
+
+    let id = store.put(b"hello world!").unwrap();
+    assert_eq!(store.get(&id).unwrap().as_deref(), Some(&b"hello world!"[..]));
+}

@@ -1,6 +1,6 @@
 // External crates
 use std::path::{Path, PathBuf};
-use std::io::{Read, Write};
+use std::io::{Read, Write, ErrorKind};
 use bytes::Bytes;
 use std::fs;
 use blake3::Hasher;
@@ -64,8 +64,12 @@ impl ContentStore for LooseStore {
     }    
 
     fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
-        /* Todo */
-        todo!()
+        let path = &self.root.join(id.to_string());
+        match fs::read(&path) {
+            Ok(data) => Ok(Some(Bytes::from(data))),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(StoreError::Io(e)),
+        }
     }
 
     fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
