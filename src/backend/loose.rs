@@ -1,46 +1,55 @@
 // External crates
-
+use std::path::{Path, PathBuf};
+use std::io::Read;
+use bytes::Bytes;
+use std::fs;
+use blake3::Hasher;
 
 // Internal crates
 use crate::id::ContentId;
 use crate::error::StoreError;
 use crate::contract::ContentStore;
 
-// Magic Numbers / Filenames
+// Magic numbers
+const BUF_SIZE : usize = 64 * 1024;
 
-
-#[derive(Default)]
 pub struct LooseStore {
-    
-    // By default create it in the current folder.
-    let literal dir_path: &str = "./objects/";
+    root: PathBuf,
 } 
 
 impl LooseStore {
-    pub fn new() -> Self {
-        /* need the dir init and objects dir creation logic here */
-        Self::default()
+
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, StoreError> {
+        let mut root: PathBuf = path.as_ref().to_path_buf();
+        root.push("objects");
+        fs::create_dir_all(&root)?;
+        Ok(LooseStore{root})
     }
 
-    pub fn is_empty(&self) {
-        /* figure out if dir is either empty or just has objects*/
+    pub fn is_empty(&self) -> bool {
+        fs::read_dir(&self.root).map(|mut entries| entries.next().is_none()).unwrap_or(false)
     }
 
     pub fn len(&self) -> usize {
         /* aggregate counts (maybe additional bookkeeping on insert / del, not sure */
+        todo!()
     }
 }
 
 impl ContentStore for LooseStore {
     fn put_reader(&self, reader: &mut dyn Read) -> Result<ContentId, StoreError> {
-        /* Todo */
+        let mut buf: Vec<u8> = Vec::with_capacity(BUF_SIZE);
+        let mut hasher = Hasher::new();
+
     }    
 
-    fn get(&self, id: ContentId) -> Result<Option<Bytes>, StoreError>> {
+    fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
         /* Todo */
+        todo!()
     }
 
-    fn has(&self, id: ContentId) -> Result<bool, StoreError> {
+    fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
         /* Todo */
+        todo!()
     }
 } 
