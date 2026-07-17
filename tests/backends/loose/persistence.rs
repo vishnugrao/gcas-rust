@@ -14,7 +14,7 @@ use gcas_rust::id::ContentId;
 fn open_empty_dir_is_empty() {
     let dir = tempdir().unwrap();
     let store = LooseStore::open(dir.path()).unwrap();
-    assert!(store.is_empty(), "Store is not empty.");
+    assert!(store.is_empty().unwrap(), "Store is not empty.");
     assert!(dir.path().join("objects").is_dir(), "Objects directory does not exist");
 }
 
@@ -28,7 +28,7 @@ fn put_small_blob_returns_correct_id() {
 
     // Returned
     let returned_id: ContentId = store.put(b"hello world!").unwrap();
-    assert!(!store.is_empty()); // Basic check to see if the store was written to at all
+    assert!(!store.is_empty().unwrap()); // Basic check to see if the store was written to at all
 
     assert_eq!(expected_id, returned_id);
 }
@@ -67,4 +67,15 @@ fn writes_sharded_object_file() {
     let hex = id.to_string();
     let object_path = dir.path().join("objects").join(&hex[..2]).join(&hex[2..]);
     assert!(object_path.is_file(), "expected sharded object at {object_path:?}");
+}
+
+#[test]
+fn put_twice_dedups() {
+    let dir = tempdir().unwrap();
+    let store = LooseStore::open(dir.path()).unwrap();
+    let first_id = store.put(b"hello world!").unwrap();
+    let second_id = store.put(b"hello world!").unwrap();
+
+    assert_eq!(first_id, second_id);
+    assert_eq!(store.len().unwrap(), 1);
 }

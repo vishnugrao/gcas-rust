@@ -5,6 +5,7 @@ use bytes::Bytes;
 use std::fs;
 use blake3::Hasher;
 use tempfile::NamedTempFile;
+use std::ffi::OsStr;
 
 // Internal crates
 use crate::id::ContentId;
@@ -27,20 +28,50 @@ impl LooseStore {
         Ok(LooseStore{root})
     }
 
-    pub fn is_empty(&self) -> bool {
-        fs::read_dir(&self.root)
-            .map(|mut entries| entries.next().is_none())
-            .unwrap_or(false)
+    pub fn is_empty(&self) -> Result<bool, StoreError> {
+        for shard in fs::read_dir(&self.root)? {
+            let shard = shard?;
+            if !shard.file_type()?.is_dir() {
+                continue;
+            }
+            let shard_name = shard.file_name();
+            for entry in fs::read_dir(shard.path())? {
+                let entry = entry?;
+                if Self::parse_object_name(&shard_name, &entry.file_name()).is_some() {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 
-    pub fn len(&self) -> usize {
-        /* aggregate counts (maybe additional bookkeeping on insert / del, not sure */
-        todo!()
+    pub fn len(&self) -> Result<usize, StoreError> {
+        let mut count = 0;
+        for shard in fs::read_dir(&self.root)? {
+            let shard = shard?;
+            if !shard.file_type()?.is_dir() {
+                continue;
+            }
+            let shard_name = shard.file_name();
+            for object in fs::read_dir(shard.path())? {
+                let object = object?;
+                if Self::parse_object_name(&shard_name, &object.file_name()).is_some() {
+                    count += 1;
+                }
+            }
+        }
+        Ok(count)
     }
 
     pub fn object_path(&self, id: &ContentId) -> PathBuf {
         let hex = id.to_string();
         self.root.join(&hex[..2]).join(&hex[2..])
+    }
+
+    fn parse_object_name(shard: &OsStr, file: &OsStr) -> Option<ContentId> {
+        let shard = shard.to_str()?;
+        let file = file.to_str()?;
+        ContentId::from_hex(&format!("{shard}{file}")).ok()
     }
 }
 
