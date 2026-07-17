@@ -2,7 +2,7 @@ pub mod addressing;
 pub mod concurrency;
 pub mod errors;
 pub mod retrieval;
-mod support;
+pub mod support;
 
 macro_rules! conformance_suite {
     ($make:expr) => {

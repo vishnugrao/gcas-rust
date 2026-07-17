@@ -1,5 +1,41 @@
 use std::io::{self, Read};
 
+use bytes::Bytes;
+use tempfile::TempDir;
+
+use gcas_rust::contract::ContentStore;
+use gcas_rust::error::StoreError;
+use gcas_rust::id::ContentId;
+
+pub struct Fixture<S> {
+    store: S,
+    _dir: Option<TempDir>,
+}
+
+impl<S> Fixture<S> {
+    pub fn bare(store: S) -> Self {
+        Self { store, _dir: None }
+    }
+
+    pub fn with_dir(store: S, dir: TempDir) -> Self {
+        Self { store, _dir: Some(dir) }
+    }
+}
+
+impl<S: ContentStore> ContentStore for Fixture<S> {
+    fn put_reader(&self, reader: &mut dyn Read) -> Result<ContentId, StoreError> {
+        self.store.put_reader(reader)
+    }
+
+    fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
+        self.store.get(id)
+    }
+
+    fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
+        self.store.has(id)
+    }
+}
+
 pub(super) fn ramp(size: usize) -> Vec<u8> {
     (0..size).map(|i| (i % 256) as u8).collect()
 }

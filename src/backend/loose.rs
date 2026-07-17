@@ -5,6 +5,7 @@ use bytes::Bytes;
 use std::fs;
 use blake3::Hasher;
 use tempfile::NamedTempFile;
+use std::ffi::OsStr;
 
 // Internal crates
 use crate::id::ContentId;
@@ -27,19 +28,55 @@ impl LooseStore {
         Ok(LooseStore{root})
     }
 
-    pub fn is_empty(&self) -> bool {
-        fs::read_dir(&self.root)
-            .map(|mut entries| entries.next().is_none())
-            .unwrap_or(false)
+    pub fn is_empty(&self) -> Result<bool, StoreError> {
+        for shard in fs::read_dir(&self.root)? {
+            let shard = shard?;
+            if !shard.file_type()?.is_dir() {
+                continue;
+            }
+            let shard_name = shard.file_name();
+            for entry in fs::read_dir(shard.path())? {
+                let entry = entry?;
+                if Self::parse_object_name(&shard_name, &entry.file_name()).is_some() {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 
-    pub fn len(&self) -> usize {
-        /* aggregate counts (maybe additional bookkeeping on insert / del, not sure */
-        todo!()
+    pub fn len(&self) -> Result<usize, StoreError> {
+        let mut count = 0;
+        for shard in fs::read_dir(&self.root)? {
+            let shard = shard?;
+            if !shard.file_type()?.is_dir() {
+                continue;
+            }
+            let shard_name = shard.file_name();
+            for object in fs::read_dir(shard.path())? {
+                let object = object?;
+                if Self::parse_object_name(&shard_name, &object.file_name()).is_some() {
+                    count += 1;
+                }
+            }
+        }
+        Ok(count)
+    }
+
+    pub fn object_path(&self, id: &ContentId) -> PathBuf {
+        let hex = id.to_string();
+        self.root.join(&hex[..2]).join(&hex[2..])
+    }
+
+    fn parse_object_name(shard: &OsStr, file: &OsStr) -> Option<ContentId> {
+        let shard = shard.to_str()?;
+        let file = file.to_str()?;
+        ContentId::from_hex(&format!("{shard}{file}")).ok()
     }
 }
 
 impl ContentStore for LooseStore {
+
     fn put_reader(&self, reader: &mut dyn Read) -> Result<ContentId, StoreError> {
         let mut buf = [0u8; BUF_SIZE];
         let mut hasher = Hasher::new();
@@ -59,12 +96,14 @@ impl ContentStore for LooseStore {
 
         let hash = hasher.finalize();
         let content_id = ContentId::from_bytes(*hash.as_bytes());
-        named_temp_file.persist(self.root.join(content_id.to_string()))?;
+        let final_path = self.object_path(&content_id);
+        fs::create_dir_all(final_path.parent().unwrap())?;
+        named_temp_file.persist(final_path)?;
         Ok(content_id)
     }    
 
     fn get(&self, id: &ContentId) -> Result<Option<Bytes>, StoreError> {
-        let path = self.root.join(id.to_string());
+        let path = self.object_path(id);
         match fs::read(&path) {
             Ok(data) => Ok(Some(Bytes::from(data))),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
@@ -73,7 +112,6 @@ impl ContentStore for LooseStore {
     }
 
     fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
-        /* Todo */
-        todo!()
+        Ok(self.object_path(id).try_exists()?)
     }
 } 
