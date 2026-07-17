@@ -37,6 +37,9 @@ impl LooseStore {
             let shard_name = shard.file_name();
             for entry in fs::read_dir(shard.path())? {
                 let entry = entry?;
+                if !entry.file_type()?.is_file() {
+                    continue;
+                }
                 if Self::parse_object_name(&shard_name, &entry.file_name()).is_some() {
                     return Ok(false);
                 }
@@ -55,6 +58,9 @@ impl LooseStore {
             let shard_name = shard.file_name();
             for object in fs::read_dir(shard.path())? {
                 let object = object?;
+                if !object.file_type()?.is_file() {
+                    continue;
+                }
                 if Self::parse_object_name(&shard_name, &object.file_name()).is_some() {
                     count += 1;
                 }
@@ -90,6 +96,7 @@ impl ContentStore for LooseStore {
                     hasher.update(read_bytes);
                     named_temp_file.write_all(read_bytes)?;
                 }
+                Err(e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(StoreError::Io(e)),
             }
         }
@@ -112,6 +119,10 @@ impl ContentStore for LooseStore {
     }
 
     fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
-        Ok(self.object_path(id).try_exists()?)
+        match fs::symlink_metadata(self.object_path(id)) {
+            Ok(m) => Ok(m.is_file()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(StoreError::Io(e)),
+        }
     }
 } 
