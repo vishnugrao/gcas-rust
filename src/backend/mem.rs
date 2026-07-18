@@ -1,6 +1,6 @@
 // External crates
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{Read, ErrorKind};
 use std::sync::RwLock;
 use bytes::{Bytes, BytesMut};
 use blake3::Hasher;
@@ -48,6 +48,7 @@ impl ContentStore for MemStore {
                     hasher.update(read_bytes);
                     data_accumulator.extend_from_slice(read_bytes);
                 }
+                Err(e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(StoreError::Io(e)),
             }
         }

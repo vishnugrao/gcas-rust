@@ -6,6 +6,7 @@ use std::fs;
 use blake3::Hasher;
 use tempfile::NamedTempFile;
 use std::ffi::OsStr;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 // Internal crates
 use crate::id::ContentId;
@@ -17,6 +18,7 @@ const BUF_SIZE : usize = 64 * 1024;
 
 pub struct LooseStore {
     root: PathBuf,
+    shard_synced: [AtomicBool; 256],
 } 
 
 impl LooseStore {
@@ -25,7 +27,10 @@ impl LooseStore {
         let mut root: PathBuf = path.as_ref().to_path_buf();
         root.push("objects");
         fs::create_dir_all(&root)?;
-        Ok(LooseStore{root})
+        Ok(LooseStore{
+            root, 
+            shard_synced: [const {AtomicBool::new(false)}; 256], 
+        })
     }
 
     pub fn is_empty(&self) -> Result<bool, StoreError> {
@@ -37,6 +42,9 @@ impl LooseStore {
             let shard_name = shard.file_name();
             for entry in fs::read_dir(shard.path())? {
                 let entry = entry?;
+                if !entry.file_type()?.is_file() {
+                    continue;
+                }
                 if Self::parse_object_name(&shard_name, &entry.file_name()).is_some() {
                     return Ok(false);
                 }
@@ -55,6 +63,9 @@ impl LooseStore {
             let shard_name = shard.file_name();
             for object in fs::read_dir(shard.path())? {
                 let object = object?;
+                if !object.file_type()?.is_file() {
+                    continue;
+                }
                 if Self::parse_object_name(&shard_name, &object.file_name()).is_some() {
                     count += 1;
                 }
@@ -73,6 +84,21 @@ impl LooseStore {
         let file = file.to_str()?;
         ContentId::from_hex(&format!("{shard}{file}")).ok()
     }
+
+    fn ensure_shard(&self, shard_dir: &Path, shard: u8) -> Result<(), StoreError> {
+        match fs::create_dir(shard_dir) {
+            Ok(()) => {}
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                if self.shard_synced[shard as usize].load(Ordering::Acquire) {
+                    return Ok(());
+                }
+            }
+            Err(e) => return Err(StoreError::Io(e)),
+        }
+        fs::File::open(&self.root)?.sync_all()?;
+        self.shard_synced[shard as usize].store(true, Ordering::Release);
+        Ok(())
+    }
 }
 
 impl ContentStore for LooseStore {
@@ -90,6 +116,7 @@ impl ContentStore for LooseStore {
                     hasher.update(read_bytes);
                     named_temp_file.write_all(read_bytes)?;
                 }
+                Err(e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(StoreError::Io(e)),
             }
         }
@@ -97,8 +124,14 @@ impl ContentStore for LooseStore {
         let hash = hasher.finalize();
         let content_id = ContentId::from_bytes(*hash.as_bytes());
         let final_path = self.object_path(&content_id);
-        fs::create_dir_all(final_path.parent().unwrap())?;
-        named_temp_file.persist(final_path)?;
+        let shard_dir = final_path.parent().unwrap();
+        self.ensure_shard(shard_dir, content_id.as_bytes()[0])?;
+
+
+        // Fsync for durability
+        named_temp_file.as_file().sync_all()?;
+        named_temp_file.persist(&final_path)?;
+        fs::File::open(shard_dir)?.sync_all()?;
         Ok(content_id)
     }    
 
@@ -112,6 +145,10 @@ impl ContentStore for LooseStore {
     }
 
     fn has(&self, id: &ContentId) -> Result<bool, StoreError> {
-        Ok(self.object_path(id).try_exists()?)
+        match fs::symlink_metadata(self.object_path(id)) {
+            Ok(m) => Ok(m.is_file()),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(StoreError::Io(e)),
+        }
     }
-} 
+}

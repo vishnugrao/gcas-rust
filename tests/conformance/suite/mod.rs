@@ -55,6 +55,11 @@ macro_rules! conformance_suite {
         fn concurrent_puts_agree_on_address() {
             crate::suite::concurrency::concurrent_puts_agree_on_address(std::sync::Arc::new(($make)()));
         }
+
+        #[test]
+        fn interrupted_reads_are_retried() {
+            crate::suite::errors::interrupted_reads_are_retried(&($make)());
+        }
     };
 }
 

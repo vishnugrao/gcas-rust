@@ -54,6 +54,26 @@ impl Read for ChunkedReader<'_> {
     }
 }
 
+pub(super) struct InterruptingReader<'a> {
+    pub data: &'a [u8],
+    pub chunk_size: usize,
+    pub armed: bool,
+}
+
+impl Read for InterruptingReader<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.armed {
+            self.armed = false;
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "EINTR"));
+        }
+        self.armed = true;
+        let n = self.chunk_size.min(buf.len()).min(self.data.len());
+        buf[..n].copy_from_slice(&self.data[..n]);
+        self.data = &self.data[n..];
+        Ok(n)
+    }
+}
+
 pub(super) struct FailingReader;
 
 impl Read for FailingReader {
